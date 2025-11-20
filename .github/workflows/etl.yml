@@ -20,7 +20,7 @@ jobs:
 
     env:
       RSPM: https://packagemanager.rstudio.com/cran/__linux__/jammy/latest
-      USE_SELENIUM: ${{ github.event.inputs.use_selenium || 'false' }}
+      USE_SELENIUM: "true"
       REBUILD_INDEX: "true"
       SCRAPE_MERCADO: "true"   # por defecto NO raspamos en CI (evita Selenium)
 
