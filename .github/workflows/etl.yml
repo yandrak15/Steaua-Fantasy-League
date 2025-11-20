@@ -1,1 +1,90 @@
-hola
+name: ETL Fantasy
+
+on:
+  workflow_dispatch: {}      # Ejecutar manualmente desde la pestaña Actions
+  schedule:
+    - cron: "0 4 * * *"      # Diario a las 04:00 UTC
+  push:
+    paths:
+      - "scripts/**"
+      - "main.R"
+      - ".github/workflows/etl.yml"
+
+jobs:
+  run-etl:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Descarga el repo
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # 2) Instala R en el runner
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3.3'   # o la que prefieras
+
+      # 3) Caché de paquetes R (acelera el job)
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/R
+          key: r-pkgs-${{ runner.os }}-${{ hashFiles('**/DESCRIPTION', '**/renv.lock') }}
+          restore-keys: r-pkgs-${{ runner.os }}-
+
+      # 4) Instala dependencias CRAN (ajusta la lista a tus scripts)
+      - name: Install R packages
+        run: |
+          Rscript -e 'pkgs <- c(
+            "data.table","openxlsx","readxl","lubridate","rvest","xml2","httr"
+            ,"RSelenium"    
+          );
+          inst <- setdiff(pkgs, rownames(installed.packages()));
+          if(length(inst)) install.packages(inst, repos="https://cloud.r-project.org")'
+
+       #===== OPCIONAL: si usas RSelenium/Chrome, descomenta este bloque =====
+       - name: Install Chrome
+         run: |
+           sudo apt-get update
+           sudo apt-get install -y google-chrome-stable
+      
+       - name: Install chromedriver
+         uses: nanasess/setup-chromedriver@v2
+      
+       - name: Start Selenium (Xvfb + Chrome)
+         run: |
+           export DISPLAY=:99
+           sudo Xvfb :99 -screen 0 1920x1080x24 >/dev/null 2>&1 &
+           chromedriver --port=9515 >/dev/null 2>&1 &
+         env:
+           DISPLAY: :99
+      # =====================================================================
+
+      # 5) Ejecuta tu pipeline (secundará a otros scripts con source())
+      - name: Run ETL (main.R)
+        run: Rscript main.R
+
+      # 6) (Opcional) sube el XLSX como artefacto del job
+      - name: Upload artifact (xlsx)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fantasy_modelo-xlsx
+          path: |
+            data/fantasy_modelo.xlsx
+            data/*.csv
+            !data/*.tmp
+
+      # 7) Commit y push de los cambios (ej. data/fantasy_modelo.xlsx)
+      - name: Commit & Push updated data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "ETL: update data ($(date -u +'%Y-%m-%d %H:%M:%S') UTC)"
+            git push
+          fi
