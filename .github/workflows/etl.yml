@@ -41,7 +41,7 @@ jobs:
 
       - name: Install R packages
         run: |
-          Rscript -e 'pkgs <- c("RSelenium","wdman","data.table","readxl","openxlsx","lubridate","stringr","xml2","rvest","DT","bs4Dash"); inst <- pkgs[!sapply(pkgs, requireNamespace, quietly=TRUE)]; if(length(inst)) install.packages(inst, repos=Sys.getenv("RSPM"));'
+          Rscript -e 'pkgs <- c("xlsx","RSelenium","wdman","data.table","readxl","openxlsx","lubridate","stringr","xml2","rvest","DT","bs4Dash"); inst <- pkgs[!sapply(pkgs, requireNamespace, quietly=TRUE)]; if(length(inst)) install.packages(inst, repos=Sys.getenv("RSPM"));'
 
       - name: Run ETL
         run: |
