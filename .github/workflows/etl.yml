@@ -1,90 +1,62 @@
 name: ETL Fantasy
 
 on:
-  workflow_dispatch: {}      # Ejecutar manualmente desde la pestaña Actions
-  schedule:
-    - cron: "0 4 * * *"      # Diario a las 04:00 UTC
+  workflow_dispatch:
+    inputs:
+      use_selenium:
+        description: "Usar Selenium (true/false)"
+        required: false
+        default: "false"
   push:
     paths:
-      - "scripts/**"
-      - "main.R"
+      - "scripts/**.R"
+      - "data/Fantasy.xlsx"
       - ".github/workflows/etl.yml"
+      - "main.R"
 
 jobs:
-  run-etl:
+  build-etl:
     runs-on: ubuntu-latest
 
+    env:
+      RSPM: https://packagemanager.rstudio.com/cran/__linux__/jammy/latest
+      USE_SELENIUM: ${{ github.event.inputs.use_selenium || 'false' }}
+      REBUILD_INDEX: "true"
+      SCRAPE_MERCADO: "true"   # por defecto NO raspamos en CI (evita Selenium)
+
     steps:
-      # 1) Descarga el repo
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 2) Instala R en el runner
-      - name: Setup R
+      - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: '4.3.3'   # o la que prefieras
+          r-version: "4.3.2"
+          use-public-rspm: true
 
-      # 3) Caché de paquetes R (acelera el job)
-      - name: Cache R packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/R
-          key: r-pkgs-${{ runner.os }}-${{ hashFiles('**/DESCRIPTION', '**/renv.lock') }}
-          restore-keys: r-pkgs-${{ runner.os }}-
+      - name: Install system deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev
 
-      # 4) Instala dependencias CRAN (ajusta la lista a tus scripts)
       - name: Install R packages
         run: |
-          Rscript -e 'pkgs <- c(
-            "data.table","openxlsx","readxl","lubridate","rvest","xml2","httr"
-            ,"RSelenium"    
-          );
-          inst <- setdiff(pkgs, rownames(installed.packages()));
-          if(length(inst)) install.packages(inst, repos="https://cloud.r-project.org")'
+          Rscript -e 'pkgs <- c("data.table","readxl","openxlsx","lubridate","stringr","xml2","rvest","DT","bs4Dash"); inst <- pkgs[!sapply(pkgs, requireNamespace, quietly=TRUE)]; if(length(inst)) install.packages(inst, repos=Sys.getenv("RSPM"));'
 
-       #===== OPCIONAL: si usas RSelenium/Chrome, descomenta este bloque =====
-       - name: Install Chrome
+      # --- Si algun día quieres Selenium en CI, descomenta este bloque y pon SCRAPE_MERCADO=true ---
+      - name: Install Selenium (optional)
+         if: env.USE_SELENIUM == 'true'
          run: |
-           sudo apt-get update
-           sudo apt-get install -y google-chrome-stable
-      
-       - name: Install chromedriver
-         uses: nanasess/setup-chromedriver@v2
-      
-       - name: Start Selenium (Xvfb + Chrome)
-         run: |
-           export DISPLAY=:99
-           sudo Xvfb :99 -screen 0 1920x1080x24 >/dev/null 2>&1 &
-           chromedriver --port=9515 >/dev/null 2>&1 &
-         env:
-           DISPLAY: :99
-      # =====================================================================
+           sudo apt-get install -y xvfb default-jre
+           Rscript -e 'inst <- c("RSelenium","wdman"); need <- inst[!sapply(inst, requireNamespace, quietly=TRUE)]; if(length(need)) install.packages(need, repos=Sys.getenv("RSPM"));'
 
-      # 5) Ejecuta tu pipeline (secundará a otros scripts con source())
-      - name: Run ETL (main.R)
-        run: Rscript main.R
+      - name: Run ETL
+        run: |
+          Rscript main.R
 
-      # 6) (Opcional) sube el XLSX como artefacto del job
-      - name: Upload artifact (xlsx)
-        if: always()
+      - name: Archive artifact (xlsx)
         uses: actions/upload-artifact@v4
         with:
-          name: fantasy_modelo-xlsx
-          path: |
-            data/fantasy_modelo.xlsx
-            data/*.csv
-            !data/*.tmp
-
-      # 7) Commit y push de los cambios (ej. data/fantasy_modelo.xlsx)
-      - name: Commit & Push updated data
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "ETL: update data ($(date -u +'%Y-%m-%d %H:%M:%S') UTC)"
-            git push
-          fi
+          name: fantasy_modelo
+          path: data/fantasy_modelo.xlsx
+          retention-days: 7
