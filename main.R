@@ -5,6 +5,8 @@ options(error = function(e){ message("ETL FAILED: ", conditionMessage(e)); q(sta
 library(data.table)
 library(lubridate)
 library(openxlsx)
+library(RSelenium)
+library(wdman)
 
 source("scripts/01_Mercado.R")
 source("scripts/02_Clausulas.R")
