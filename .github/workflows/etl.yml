@@ -31,7 +31,7 @@ jobs:
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: "4.3.2"
+          r-version: "4.5.0"
           use-public-rspm: true
 
       - name: Install system deps
@@ -41,14 +41,7 @@ jobs:
 
       - name: Install R packages
         run: |
-          Rscript -e 'pkgs <- c("data.table","readxl","openxlsx","lubridate","stringr","xml2","rvest","DT","bs4Dash"); inst <- pkgs[!sapply(pkgs, requireNamespace, quietly=TRUE)]; if(length(inst)) install.packages(inst, repos=Sys.getenv("RSPM"));'
-
-      # --- Si algun día quieres Selenium en CI, descomenta este bloque y pon SCRAPE_MERCADO=true ---
-      - name: Install Selenium (optional)
-         if: env.USE_SELENIUM == 'true'
-         run: |
-           sudo apt-get install -y xvfb default-jre
-           Rscript -e 'inst <- c("RSelenium","wdman"); need <- inst[!sapply(inst, requireNamespace, quietly=TRUE)]; if(length(need)) install.packages(need, repos=Sys.getenv("RSPM"));'
+          Rscript -e 'pkgs <- c("RSelenium","wdman","data.table","readxl","openxlsx","lubridate","stringr","xml2","rvest","DT","bs4Dash"); inst <- pkgs[!sapply(pkgs, requireNamespace, quietly=TRUE)]; if(length(inst)) install.packages(inst, repos=Sys.getenv("RSPM"));'
 
       - name: Run ETL
         run: |
