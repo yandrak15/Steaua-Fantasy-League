@@ -18,7 +18,7 @@ SCRAPE_MERC   <- tolower(Sys.getenv("SCRAPE_MERCADO","true"))%in% c("1","true","
 
 # ---- Dependencias mínimas (CRAN) ----
 needed <- c(
-  "data.table","readxl","openxlsx","lubridate","stringr","xml2","rvest","DT","bs4Dash"
+  "data.table","readxl","openxlsx","lubridate","stringr","xml2","rvest","DT","bs4Dash","xlsx"
 )
 # Para Selenium (opcional):
 if (USE_SELENIUM) needed <- c(needed, "RSelenium","wdman")
